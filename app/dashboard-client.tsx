@@ -252,7 +252,7 @@ function ActivityPanel({ activity, limit }: { activity: Activity[]; limit?: numb
   );
 }
 
-function RiskPanel({ risk, account, system, onControl, busy }: { risk?: Risk; account?: Account; system: SystemState; onControl: (action: string) => void; busy: string | null }) {
+function RiskPanel({ risk, account, system, onControl, busy, controlReason, onControlReason }: { risk?: Risk; account?: Account; system: SystemState; onControl: (action: string) => void; busy: string | null; controlReason: string; onControlReason: (reason: string) => void }) {
   const controls = [
     { name: "Trading state", value: system.killSwitchEngaged ? "KILL SWITCH" : system.paused ? "Paused" : "Eligible", note: system.reason, state: system.paused ? "watch" : "safe" },
     { name: "Market data", value: risk?.staleData ? "Stale" : risk ? "Fresh" : "Unknown", note: risk ? `Updated ${new Date(risk.recordedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Awaiting first risk snapshot", state: risk && !risk.staleData ? "safe" : "watch" },
@@ -266,8 +266,9 @@ function RiskPanel({ risk, account, system, onControl, busy }: { risk?: Risk; ac
     <div className="control-actions">
       {!system.paused && <button type="button" className="pause-button" disabled={!!busy} onClick={() => onControl("pause")}>Pause new trades</button>}
       {system.paused && !system.killSwitchEngaged && <button type="button" className="resume-button" disabled={!!busy} onClick={() => onControl("resume")}>Resume eligible trading</button>}
-      {!system.killSwitchEngaged && <button type="button" className="kill-button" disabled={!!busy} onClick={() => onControl("engage_kill")}>Engage kill switch</button>}
-      {system.killSwitchEngaged && <button type="button" className="clear-kill-button" disabled={!!busy} onClick={() => onControl("clear_kill")}>Clear kill switch (remains paused)</button>}
+      <label className="control-reason"><span>{system.killSwitchEngaged ? "Reason to clear" : "Emergency-stop reason"}</span><input aria-label={system.killSwitchEngaged ? "Reason to clear kill switch" : "Kill-switch reason"} value={controlReason} onChange={(event) => onControlReason(event.target.value)} maxLength={500} placeholder={system.killSwitchEngaged ? "Why is it safe to clear?" : "Why are you stopping trading?"} /></label>
+      {!system.killSwitchEngaged && <button type="button" className="kill-button" disabled={!!busy || !controlReason.trim()} onClick={() => onControl("engage_kill")}>Engage kill switch</button>}
+      {system.killSwitchEngaged && <button type="button" className="clear-kill-button" disabled={!!busy || !controlReason.trim()} onClick={() => onControl("clear_kill")}>Clear kill switch (remains paused)</button>}
     </div>
   </section>;
 }
@@ -281,6 +282,7 @@ export default function DashboardClient({ user }: { user: { displayName: string;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [controlReason, setControlReason] = useState("");
 
   const refresh = useCallback(async () => {
     try {
@@ -324,16 +326,14 @@ export default function DashboardClient({ user }: { user: { displayName: string;
   };
 
   const updateControl = async (action: string) => {
-    let reason: string | null = null;
-    if (action === "engage_kill" || action === "clear_kill") {
-      reason = window.prompt(action === "engage_kill" ? "Why are you engaging the kill switch?" : "Why is it safe to clear the kill switch?");
-      if (!reason?.trim()) return;
-    }
+    const reason = action === "engage_kill" || action === "clear_kill" ? controlReason.trim() : null;
+    if ((action === "engage_kill" || action === "clear_kill") && !reason) return;
     setBusy(action);
     try {
       const response = await fetch("/api/control", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, reason }) });
       const body = await response.json() as { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Control update failed");
+      if (action === "engage_kill" || action === "clear_kill") setControlReason("");
       await refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Control update failed");
@@ -380,11 +380,11 @@ export default function DashboardClient({ user }: { user: { displayName: string;
         {error && <div className="error-banner" role="alert"><strong>Dashboard needs attention.</strong> {error}<button type="button" onClick={() => void refresh()}>Retry</button></div>}
         <div className={`safety-banner ${data.system.killSwitchEngaged ? "safety-banner--kill" : data.system.paused ? "safety-banner--paused" : "safety-banner--active"}`}><div><strong>{data.system.killSwitchEngaged ? "Emergency kill switch engaged" : data.system.paused ? "New trades are paused" : "Trading is eligible within configured limits"}</strong><span>{data.system.reason}</span></div>{!data.system.paused && <button type="button" onClick={() => void updateControl("pause")}>Pause now</button>}</div>
 
-        {view === "overview" && <><section className="metric-grid" aria-label={`${mode} account summary`}><article className="metric-card metric-card--accent"><div className="metric-label"><span>{mode} equity</span><ModeBadge mode={mode} /></div><strong>{money(account?.equityCents)}</strong><p>{money(account?.dayPnlCents, true)} today</p></article><article className="metric-card"><div className="metric-label"><span>Buying power</span><span>↗</span></div><strong>{money(account?.buyingPowerCents)}</strong><p>{account ? account.accountLabel : "Awaiting bot sync"}</p></article><article className="metric-card"><div className="metric-label"><span>Open exposure</span><span>↗</span></div><strong>{money(account?.openExposureCents)}</strong><p>Across {account?.openPositionsCount ?? 0} positions</p></article><article className="metric-card"><div className="metric-label"><span>Win rate</span><span>↗</span></div><strong>{account ? `${(account.winRateBps / 100).toFixed(1)}%` : "—"}</strong><p>From completed ledger trades</p></article></section><ApprovalCards proposals={proposals} paused={data.system.paused} busy={busy} onDecision={decide} compact /><div className="overview-grid"><EquityChart accounts={history} /><PositionsPanel positions={positions} /></div><div className="lower-grid"><ActivityPanel activity={activity} limit={5} /><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} /></div></>}
+        {view === "overview" && <><section className="metric-grid" aria-label={`${mode} account summary`}><article className="metric-card metric-card--accent"><div className="metric-label"><span>{mode} equity</span><ModeBadge mode={mode} /></div><strong>{money(account?.equityCents)}</strong><p>{money(account?.dayPnlCents, true)} today</p></article><article className="metric-card"><div className="metric-label"><span>Buying power</span><span>↗</span></div><strong>{money(account?.buyingPowerCents)}</strong><p>{account ? account.accountLabel : "Awaiting bot sync"}</p></article><article className="metric-card"><div className="metric-label"><span>Open exposure</span><span>↗</span></div><strong>{money(account?.openExposureCents)}</strong><p>Across {account?.openPositionsCount ?? 0} positions</p></article><article className="metric-card"><div className="metric-label"><span>Win rate</span><span>↗</span></div><strong>{account ? `${(account.winRateBps / 100).toFixed(1)}%` : "—"}</strong><p>From completed ledger trades</p></article></section><ApprovalCards proposals={proposals} paused={data.system.paused} busy={busy} onDecision={decide} compact /><div className="overview-grid"><EquityChart accounts={history} /><PositionsPanel positions={positions} /></div><div className="lower-grid"><ActivityPanel activity={activity} limit={5} /><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div></>}
         {view === "approvals" && <div className="single-view single-view--wide"><ApprovalCards proposals={proposals} paused={data.system.paused} busy={busy} onDecision={decide} /></div>}
-        {view === "positions" && <div className="single-view"><PositionsPanel positions={positions} expanded /><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} /></div>}
+        {view === "positions" && <div className="single-view"><PositionsPanel positions={positions} expanded /><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div>}
         {view === "activity" && <div className="single-view single-view--wide"><ActivityPanel activity={activity} /></div>}
-        {view === "risk" && <div className="single-view single-view--wide"><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} /></div>}
+        {view === "risk" && <div className="single-view single-view--wide"><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div>}
         <footer><span>Signal Desk · D1-backed trading operations</span><span>{mode === "live" ? "LIVE account selected — approvals can submit real orders through the bot." : "Paper account selected — no real order execution."}</span></footer>
       </div>
     </main>
