@@ -1,5 +1,6 @@
 import { and, desc, eq, gt } from "drizzle-orm";
 import { getDb } from "@/db";
+import { firstRowPerMode } from "@/app/lib/first-row-per-mode";
 import { isPaperAutoApprovalEnabled } from "@/app/lib/server";
 import {
   accountSnapshots,
@@ -29,8 +30,8 @@ export async function getDashboardData() {
     db.select().from(watchlistStatus).where(eq(watchlistStatus.id, 1)).limit(1),
   ]);
 
-  const latestAccounts = [...new Map(accounts.map((row) => [row.mode, row])).values()];
-  const latestRisk = [...new Map(risk.map((row) => [row.mode, row])).values()];
+  const latestAccounts = firstRowPerMode(accounts);
+  const latestRisk = firstRowPerMode(risk);
   return {
     serverTime: now,
     paperAutoApprove: isPaperAutoApprovalEnabled(),

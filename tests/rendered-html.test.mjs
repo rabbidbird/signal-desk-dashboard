@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { access, readFile, readdir } from "node:fs/promises";
 import test from "node:test";
+import { firstRowPerMode } from "../app/lib/first-row-per-mode.ts";
 
 const root = new URL("../", import.meta.url);
 
@@ -35,6 +36,28 @@ test("declares durable storage and protected bot API configuration", async () =>
   assert.match(decisionRoute, /status = 'pending'/);
   assert.match(decisionRoute, /expires_at > \?/);
   assert.match(decisionRoute, /material_hash = \?/);
+});
+
+test("keeps the newest account and risk row for each mode", async () => {
+  const descendingAccounts = [
+    { id: "paper-new", mode: "paper", recordedAt: "2026-08-04T16:23:54.000Z" },
+    { id: "live-new", mode: "live", recordedAt: "2026-08-04T16:22:00.000Z" },
+    { id: "paper-old", mode: "paper", recordedAt: "2026-08-04T14:39:00.000Z" },
+    { id: "live-old", mode: "live", recordedAt: "2026-08-04T14:38:00.000Z" },
+  ];
+  const descendingRisk = [
+    { id: "paper-risk-new", mode: "paper", recordedAt: "2026-08-04T16:23:54.000Z" },
+    { id: "paper-risk-old", mode: "paper", recordedAt: "2026-08-04T14:39:00.000Z" },
+  ];
+
+  assert.deepEqual(firstRowPerMode(descendingAccounts).map((row) => row.id), ["paper-new", "live-new"]);
+  assert.deepEqual(firstRowPerMode(descendingRisk).map((row) => row.id), ["paper-risk-new"]);
+
+  const dashboardData = await readFile(new URL("app/lib/dashboard-data.ts", root), "utf8");
+  assert.match(dashboardData, /accountSnapshots\)\.orderBy\(desc\(accountSnapshots\.recordedAt\)\)/);
+  assert.match(dashboardData, /riskSnapshots\)\.orderBy\(desc\(riskSnapshots\.recordedAt\)\)/);
+  assert.match(dashboardData, /firstRowPerMode\(accounts\)/);
+  assert.match(dashboardData, /firstRowPerMode\(risk\)/);
 });
 
 test("persists optional paper-only watchlist telemetry without implying a connection", async () => {
