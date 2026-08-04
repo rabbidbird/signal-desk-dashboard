@@ -52,6 +52,15 @@ type Risk = {
   recordedAt: string;
 };
 
+type Watchlist = {
+  status: "connected" | "degraded" | "offline";
+  listLabel: string;
+  itemCount: number;
+  botManagedCount: number;
+  syncedAt: string;
+  message: string;
+};
+
 type Position = {
   id: string;
   mode: Mode;
@@ -94,6 +103,7 @@ type DashboardData = {
   risk: Risk[];
   positions: Position[];
   activity: Activity[];
+  watchlist: Watchlist | null;
   system: SystemState;
 };
 
@@ -113,6 +123,7 @@ const emptyData: DashboardData = {
   risk: [],
   positions: [],
   activity: [],
+  watchlist: null,
   system: { paused: true, killSwitchEngaged: false, reason: "Awaiting dashboard sync", version: 0, updatedAt: new Date().toISOString() },
 };
 
@@ -144,6 +155,27 @@ function ModeBadge({ mode }: { mode: Mode }) {
 
 function EmptyState({ title, detail }: { title: string; detail: string }) {
   return <div className="empty-state"><span aria-hidden="true">◇</span><strong>{title}</strong><p>{detail}</p></div>;
+}
+
+function watchlistFreshness(syncedAt: string, serverTime: string) {
+  const ageMs = Math.max(0, Date.parse(serverTime) - Date.parse(syncedAt));
+  const ageMinutes = Math.floor(ageMs / 60_000);
+  if (ageMs <= 2 * 60_000) return { label: "Fresh", detail: "under 2m old" };
+  if (ageMs <= 15 * 60_000) return { label: "Aging", detail: `${ageMinutes}m old` };
+  return { label: "Stale", detail: ageMinutes < 60 ? `${ageMinutes}m old` : `${Math.floor(ageMinutes / 60)}h old` };
+}
+
+function WatchlistPanel({ watchlist, serverTime }: { watchlist: Watchlist | null; serverTime: string }) {
+  const freshness = watchlist ? watchlistFreshness(watchlist.syncedAt, serverTime) : null;
+  const displayStatus = watchlist === null ? "Awaiting sync" : { connected: "Connected", degraded: "Degraded", offline: "Offline" }[watchlist.status];
+  return (
+    <section className={`panel watchlist-panel watchlist-panel--${watchlist?.status ?? "awaiting"}`} aria-labelledby="watchlist-title">
+      <div className="watchlist-copy"><p className="eyebrow">PAPER-ONLY MONITORING</p><h2 id="watchlist-title">Robinhood Options Watchlist</h2><p>{watchlist?.message ?? "Waiting for optional watchlist telemetry from the local bot."}</p></div>
+      <div className="watchlist-state"><span className="watchlist-status">{displayStatus}</span><strong>{watchlist?.listLabel ?? "Awaiting sync"}</strong><small>{watchlist ? `Last sync ${new Date(watchlist.syncedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "No watchlist sync has been received"}</small></div>
+      <div className="watchlist-facts"><div><span>Monitored</span><strong>{watchlist ? watchlist.botManagedCount : "—"}</strong><small>{watchlist ? `${watchlist.itemCount} total items` : "Awaiting bot count"}</small></div><div><span>Freshness</span><strong>{freshness?.label ?? "Awaiting sync"}</strong><small>{freshness?.detail ?? "No timestamp yet"}</small></div></div>
+      <p className="watchlist-safety">Paper-only monitoring · Real Robinhood execution remains disabled in V1.</p>
+    </section>
+  );
 }
 
 function ApprovalCards({
@@ -380,7 +412,7 @@ export default function DashboardClient({ user }: { user: { displayName: string;
         {error && <div className="error-banner" role="alert"><strong>Dashboard needs attention.</strong> {error}<button type="button" onClick={() => void refresh()}>Retry</button></div>}
         <div className={`safety-banner ${data.system.killSwitchEngaged ? "safety-banner--kill" : data.system.paused ? "safety-banner--paused" : "safety-banner--active"}`}><div><strong>{data.system.killSwitchEngaged ? "Emergency kill switch engaged" : data.system.paused ? "New trades are paused" : "Trading is eligible within configured limits"}</strong><span>{data.system.reason}</span></div>{!data.system.paused && <button type="button" onClick={() => void updateControl("pause")}>Pause now</button>}</div>
 
-        {view === "overview" && <><section className="metric-grid" aria-label={`${mode} account summary`}><article className="metric-card metric-card--accent"><div className="metric-label"><span>{mode} equity</span><ModeBadge mode={mode} /></div><strong>{money(account?.equityCents)}</strong><p>{money(account?.dayPnlCents, true)} today</p></article><article className="metric-card"><div className="metric-label"><span>Buying power</span><span>↗</span></div><strong>{money(account?.buyingPowerCents)}</strong><p>{account ? account.accountLabel : "Awaiting bot sync"}</p></article><article className="metric-card"><div className="metric-label"><span>Open exposure</span><span>↗</span></div><strong>{money(account?.openExposureCents)}</strong><p>Across {account?.openPositionsCount ?? 0} positions</p></article><article className="metric-card"><div className="metric-label"><span>Win rate</span><span>↗</span></div><strong>{account ? `${(account.winRateBps / 100).toFixed(1)}%` : "—"}</strong><p>From completed ledger trades</p></article></section><ApprovalCards proposals={proposals} paused={data.system.paused} busy={busy} onDecision={decide} compact /><div className="overview-grid"><EquityChart accounts={history} /><PositionsPanel positions={positions} /></div><div className="lower-grid"><ActivityPanel activity={activity} limit={5} /><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div></>}
+        {view === "overview" && <><section className="metric-grid" aria-label={`${mode} account summary`}><article className="metric-card metric-card--accent"><div className="metric-label"><span>{mode} equity</span><ModeBadge mode={mode} /></div><strong>{money(account?.equityCents)}</strong><p>{money(account?.dayPnlCents, true)} today</p></article><article className="metric-card"><div className="metric-label"><span>Buying power</span><span>↗</span></div><strong>{money(account?.buyingPowerCents)}</strong><p>{account ? account.accountLabel : "Awaiting bot sync"}</p></article><article className="metric-card"><div className="metric-label"><span>Open exposure</span><span>↗</span></div><strong>{money(account?.openExposureCents)}</strong><p>Across {account?.openPositionsCount ?? 0} positions</p></article><article className="metric-card"><div className="metric-label"><span>Win rate</span><span>↗</span></div><strong>{account ? `${(account.winRateBps / 100).toFixed(1)}%` : "—"}</strong><p>From completed ledger trades</p></article></section><WatchlistPanel watchlist={data.watchlist} serverTime={data.serverTime} /><ApprovalCards proposals={proposals} paused={data.system.paused} busy={busy} onDecision={decide} compact /><div className="overview-grid"><EquityChart accounts={history} /><PositionsPanel positions={positions} /></div><div className="lower-grid"><ActivityPanel activity={activity} limit={5} /><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div></>}
         {view === "approvals" && <div className="single-view single-view--wide"><ApprovalCards proposals={proposals} paused={data.system.paused} busy={busy} onDecision={decide} /></div>}
         {view === "positions" && <div className="single-view"><PositionsPanel positions={positions} expanded /><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div>}
         {view === "activity" && <div className="single-view single-view--wide"><ActivityPanel activity={activity} /></div>}

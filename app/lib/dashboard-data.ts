@@ -7,12 +7,13 @@ import {
   proposals,
   riskSnapshots,
   systemState,
+  watchlistStatus,
 } from "@/db/schema";
 
 export async function getDashboardData() {
   const db = getDb();
   const now = new Date().toISOString();
-  const [pending, accounts, risk, openPositions, activity, stateRows] = await Promise.all([
+  const [pending, accounts, risk, openPositions, activity, stateRows, watchlistRows] = await Promise.all([
     db
       .select()
       .from(proposals)
@@ -24,6 +25,7 @@ export async function getDashboardData() {
     db.select().from(positions).where(eq(positions.status, "open")).orderBy(desc(positions.updatedAt)).limit(100),
     db.select().from(activityEvents).orderBy(desc(activityEvents.occurredAt)).limit(50),
     db.select().from(systemState).where(eq(systemState.id, 1)).limit(1),
+    db.select().from(watchlistStatus).where(eq(watchlistStatus.id, 1)).limit(1),
   ]);
 
   const latestAccounts = [...new Map(accounts.map((row) => [row.mode, row])).values()];
@@ -41,6 +43,7 @@ export async function getDashboardData() {
     risk: latestRisk,
     positions: openPositions,
     activity,
+    watchlist: watchlistRows[0] ?? null,
     system: stateRows[0] ?? {
       id: 1,
       paused: true,

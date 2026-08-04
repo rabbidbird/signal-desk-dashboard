@@ -34,9 +34,13 @@ Content-Type: application/json  # POST only
   material is idempotent; changing a pending proposal increments its revision;
   a decided proposal is immutable. Live proposals accept only supported
   single-leg Level 2 strategies and require a broker review id.
-- `POST /api/bot/telemetry` accepts bounded `account`, `risk`, `positions`,
-  `activities`, and `executions` sections. Execution updates succeed only when
-  they match an approved decision id, proposal revision, and material hash.
+- `POST /api/bot/telemetry` accepts bounded `account`, `risk`, `watchlist`,
+  `positions`, `activities`, and `executions` sections. The optional watchlist
+  object records `status`, `listLabel`, `itemCount`, `botManagedCount`,
+  `syncedAt`, and `message` for paper-only Robinhood Options Watchlist
+  monitoring. Missing watchlist telemetry displays as Awaiting sync. Execution
+  updates succeed only when they match an approved decision id, proposal
+  revision, and material hash.
 - `GET /api/bot/commands?since=<ISO-8601>` returns immutable approve/deny
   commands and the current pause/kill-switch state. The bot must fail closed
   whenever `paused` or `killSwitchEngaged` is true.

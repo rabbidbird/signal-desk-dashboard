@@ -102,6 +102,17 @@ export const riskSnapshots = sqliteTable(
   (table) => [index("idx_risk_snapshots_mode_recorded").on(table.mode, table.recordedAt)],
 );
 
+export const watchlistStatus = sqliteTable("watchlist_status", {
+  id: integer("id").primaryKey(),
+  status: text("status", { enum: ["connected", "degraded", "offline"] }).notNull(),
+  listLabel: text("list_label").notNull(),
+  itemCount: integer("item_count").notNull(),
+  botManagedCount: integer("bot_managed_count").notNull(),
+  syncedAt: text("synced_at").notNull(),
+  message: text("message").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const positions = sqliteTable(
   "positions",
   {

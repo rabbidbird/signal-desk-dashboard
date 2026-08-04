@@ -23,6 +23,7 @@ export async function POST(request: Request) {
 
     if (body.account !== undefined) statements.push(accountStatement(d1, object(body.account, "account")));
     if (body.risk !== undefined) statements.push(riskStatement(d1, object(body.risk, "risk")));
+    if (body.watchlist !== undefined) statements.push(watchlistStatement(d1, object(body.watchlist, "watchlist")));
     if (body.positions !== undefined) statements.push(...positionStatements(d1, object(body.positions, "positions")));
     if (body.activities !== undefined) statements.push(...activityStatements(d1, array(body.activities, "activities", 100)));
     if (body.executions !== undefined) {
@@ -41,6 +42,37 @@ export async function POST(request: Request) {
   } catch (error) {
     return routeError(error);
   }
+}
+
+function watchlistStatement(d1: D1Database, value: Record<string, unknown>) {
+  const status = asString(value.status, "watchlist.status", { max: 10 });
+  if (status !== "connected" && status !== "degraded" && status !== "offline") {
+    throw new RequestError("watchlist.status must be connected, degraded, or offline");
+  }
+  const itemCount = asInteger(value.itemCount, "watchlist.itemCount", { min: 0, max: 5_000 }) as number;
+  const botManagedCount = asInteger(value.botManagedCount, "watchlist.botManagedCount", { min: 0, max: 5_000 }) as number;
+  if (botManagedCount > itemCount) {
+    throw new RequestError("watchlist.botManagedCount cannot exceed watchlist.itemCount");
+  }
+  return d1
+    .prepare(
+      `INSERT INTO watchlist_status
+        (id, status, list_label, item_count, bot_managed_count, synced_at, message, updated_at)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         status=excluded.status, list_label=excluded.list_label,
+         item_count=excluded.item_count, bot_managed_count=excluded.bot_managed_count,
+         synced_at=excluded.synced_at, message=excluded.message, updated_at=excluded.updated_at`,
+    )
+    .bind(
+      status,
+      asString(value.listLabel, "watchlist.listLabel", { max: 80 }),
+      itemCount,
+      botManagedCount,
+      asIsoTimestamp(value.syncedAt, "watchlist.syncedAt", { maxPastMs: 24 * 60 * 60_000, maxFutureMs: 30_000 }),
+      asString(value.message, "watchlist.message", { max: 500 }),
+      new Date().toISOString(),
+    );
 }
 
 function accountStatement(d1: D1Database, value: Record<string, unknown>) {
