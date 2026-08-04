@@ -188,7 +188,7 @@ function ApprovalCards({
               {!!proposal.brokerAlerts.length && <div className="broker-alert"><strong>Broker review alerts</strong>{proposal.brokerAlerts.map((alert) => <span key={alert}>{alert}</span>)}</div>}
               <div className="approval-actions">
                 <button className="deny-button" type="button" disabled={busy === proposal.id} onClick={() => onDecision(proposal, "denied")}>Deny</button>
-                <button className="approve-button" type="button" disabled={paused || busy === proposal.id} onClick={() => onDecision(proposal, "approved")}>{paused ? "Paused" : proposal.mode === "live" ? "Approve live order" : "Approve paper order"}</button>
+                <button className="approve-button" type="button" disabled={paused || busy === proposal.id} onClick={() => onDecision(proposal, "approved")}>{paused ? "Paused" : proposal.mode === "live" ? "Approve for broker review" : "Approve paper order"}</button>
               </div>
             </article>
           ))}
@@ -256,7 +256,7 @@ function RiskPanel({ risk, account, system, onControl, busy, controlReason, onCo
   const controls = [
     { name: "Trading state", value: system.killSwitchEngaged ? "KILL SWITCH" : system.paused ? "Paused" : "Eligible", note: system.reason, state: system.paused ? "watch" : "safe" },
     { name: "Market data", value: risk?.staleData ? "Stale" : risk ? "Fresh" : "Unknown", note: risk ? `Updated ${new Date(risk.recordedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Awaiting first risk snapshot", state: risk && !risk.staleData ? "safe" : "watch" },
-    { name: "Broker connection", value: risk?.brokerConnected ? "Connected" : "Offline", note: risk?.mode === "live" ? "Robinhood Agentic connection" : "Paper broker", state: risk?.brokerConnected ? "safe" : "watch" },
+    { name: "Broker telemetry", value: risk?.brokerConnected ? "Reported connected" : risk ? "Reported offline" : "Unknown", note: risk ? `${risk.mode === "live" ? "Robinhood" : "Paper broker"} telemetry · ${risk.staleData ? "stale" : "updated"} ${new Date(risk.recordedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Awaiting bot telemetry", state: risk?.brokerConnected && !risk.staleData ? "safe" : "watch" },
     { name: "Open positions", value: `${account?.openPositionsCount ?? 0} / ${risk?.maxPositions ?? "—"}`, note: "Current account versus configured limit", state: account && risk && account.openPositionsCount <= risk.maxPositions ? "safe" : "watch" },
     { name: "Exposure", value: `${money(account?.openExposureCents)} / ${money(risk?.maxExposureCents)}`, note: `Daily loss buffer ${money(risk?.dailyLossRemainingCents)}`, state: account && risk && account.openExposureCents <= risk.maxExposureCents ? "safe" : "watch" },
   ];
@@ -385,7 +385,7 @@ export default function DashboardClient({ user }: { user: { displayName: string;
         {view === "positions" && <div className="single-view"><PositionsPanel positions={positions} expanded /><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div>}
         {view === "activity" && <div className="single-view single-view--wide"><ActivityPanel activity={activity} /></div>}
         {view === "risk" && <div className="single-view single-view--wide"><RiskPanel risk={risk} account={account} system={data.system} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div>}
-        <footer><span>Signal Desk · D1-backed trading operations</span><span>{mode === "live" ? "LIVE account selected — approvals can submit real orders through the bot." : "Paper account selected — no real order execution."}</span></footer>
+        <footer><span>Signal Desk · D1-backed trading operations</span><span>{mode === "live" ? "Live account view — Robinhood execution is disabled in V1." : "Paper account selected — no real order execution."}</span></footer>
       </div>
     </main>
     {mobileNav && <button className="nav-scrim" aria-label="Close navigation overlay" type="button" onClick={() => setMobileNav(false)} />}
