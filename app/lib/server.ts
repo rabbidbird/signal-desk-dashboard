@@ -7,6 +7,10 @@ export type ProposalDecision = "approved" | "denied";
 const BOT_ID = "signal-desk-local";
 const MAX_JSON_BYTES = 64 * 1024;
 
+export function isPaperAutoApprovalEnabled(): boolean {
+  return getRuntimeEnv().PAPER_AUTO_APPROVE?.trim().toLowerCase() === "true";
+}
+
 export class RequestError extends Error {
   constructor(
     message: string,

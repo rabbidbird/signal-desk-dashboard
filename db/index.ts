@@ -5,6 +5,7 @@ import * as schema from "./schema";
 type RuntimeEnv = {
   DB?: D1Database;
   BOT_API_TOKEN?: string;
+  PAPER_AUTO_APPROVE?: string;
 };
 
 export function getRuntimeEnv(): RuntimeEnv {

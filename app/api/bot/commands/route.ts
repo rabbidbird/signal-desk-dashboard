@@ -1,7 +1,7 @@
 import { and, desc, eq, gt } from "drizzle-orm";
 import { getDb } from "@/db";
 import { decisions, proposals, systemState } from "@/db/schema";
-import { RequestError, requireBot, routeError } from "@/app/lib/server";
+import { isPaperAutoApprovalEnabled, RequestError, requireBot, routeError } from "@/app/lib/server";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +36,7 @@ export async function GET(request: Request) {
     return Response.json(
       {
         serverTime: now,
+        paperAutoApprove: isPaperAutoApprovalEnabled(),
         system: stateRows[0] ?? {
           id: 1,
           paused: true,

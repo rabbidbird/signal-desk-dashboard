@@ -63,3 +63,25 @@ test("persists optional paper-only watchlist telemetry without implying a connec
   assert.match(client, /Paper-only monitoring/);
   assert.match(client, /Real Robinhood execution remains disabled in V1/);
 });
+
+test("auto-approves paper proposals only when the operator policy and safety controls allow it", async () => {
+  const [environment, server, proposalRoute, commandRoute, dashboardData, client] = await Promise.all([
+    readFile(new URL(".env.example", root), "utf8"),
+    readFile(new URL("app/lib/server.ts", root), "utf8"),
+    readFile(new URL("app/api/bot/proposals/route.ts", root), "utf8"),
+    readFile(new URL("app/api/bot/commands/route.ts", root), "utf8"),
+    readFile(new URL("app/lib/dashboard-data.ts", root), "utf8"),
+    readFile(new URL("app/dashboard-client.tsx", root), "utf8"),
+  ]);
+  assert.match(environment, /PAPER_AUTO_APPROVE=false/);
+  assert.match(server, /PAPER_AUTO_APPROVE/);
+  assert.match(proposalRoute, /proposal\.mode !== "paper"/);
+  assert.match(proposalRoute, /s\.paused = 0 AND s\.kill_switch_engaged = 0/);
+  assert.match(proposalRoute, /p\.expires_at > \?/);
+  assert.match(proposalRoute, /paper-auto-policy/);
+  assert.doesNotMatch(proposalRoute, /mode = 'live'.*approved/s);
+  assert.match(commandRoute, /paperAutoApprove: isPaperAutoApprovalEnabled\(\)/);
+  assert.match(dashboardData, /paperAutoApprove/);
+  assert.match(client, /Paper approvals/);
+  assert.match(client, /live execution remains disabled/);
+});

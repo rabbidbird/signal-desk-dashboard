@@ -1,5 +1,6 @@
 import { and, desc, eq, gt } from "drizzle-orm";
 import { getDb } from "@/db";
+import { isPaperAutoApprovalEnabled } from "@/app/lib/server";
 import {
   accountSnapshots,
   activityEvents,
@@ -32,6 +33,7 @@ export async function getDashboardData() {
   const latestRisk = [...new Map(risk.map((row) => [row.mode, row])).values()];
   return {
     serverTime: now,
+    paperAutoApprove: isPaperAutoApprovalEnabled(),
     proposals: pending.map((proposal) => ({
       ...proposal,
       brokerAlerts: safeStringArray(proposal.brokerAlertsJson),
