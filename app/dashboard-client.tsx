@@ -167,9 +167,10 @@ function watchlistFreshness(syncedAt: string, serverTime: string) {
 
 function WatchlistPanel({ watchlist, serverTime }: { watchlist: Watchlist | null; serverTime: string }) {
   const freshness = watchlist ? watchlistFreshness(watchlist.syncedAt, serverTime) : null;
-  const displayStatus = watchlist === null ? "Awaiting sync" : { connected: "Connected", degraded: "Degraded", offline: "Offline" }[watchlist.status];
+  const effectiveStatus = watchlist === null ? "awaiting" : freshness?.label === "Stale" ? "stale" : watchlist.status;
+  const displayStatus = { awaiting: "Awaiting sync", connected: "Connected", degraded: "Degraded", offline: "Offline", stale: "Stale" }[effectiveStatus];
   return (
-    <section className={`panel watchlist-panel watchlist-panel--${watchlist?.status ?? "awaiting"}`} aria-labelledby="watchlist-title">
+    <section className={`panel watchlist-panel watchlist-panel--${effectiveStatus}`} aria-labelledby="watchlist-title">
       <div className="watchlist-copy"><p className="eyebrow">PAPER-ONLY MONITORING</p><h2 id="watchlist-title">Robinhood Options Watchlist</h2><p>{watchlist?.message ?? "Waiting for optional watchlist telemetry from the local bot."}</p></div>
       <div className="watchlist-state"><span className="watchlist-status">{displayStatus}</span><strong>{watchlist?.listLabel ?? "Awaiting sync"}</strong><small>{watchlist ? `Last sync ${new Date(watchlist.syncedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "No watchlist sync has been received"}</small></div>
       <div className="watchlist-facts"><div><span>Monitored</span><strong>{watchlist ? watchlist.botManagedCount : "—"}</strong><small>{watchlist ? `${watchlist.itemCount} total items` : "Awaiting bot count"}</small></div><div><span>Freshness</span><strong>{freshness?.label ?? "Awaiting sync"}</strong><small>{freshness?.detail ?? "No timestamp yet"}</small></div></div>

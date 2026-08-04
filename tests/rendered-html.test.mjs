@@ -38,11 +38,12 @@ test("declares durable storage and protected bot API configuration", async () =>
 });
 
 test("persists optional paper-only watchlist telemetry without implying a connection", async () => {
-  const [schema, telemetryRoute, dashboardData, client, migrationNames] = await Promise.all([
+  const [schema, telemetryRoute, dashboardData, client, styles, migrationNames] = await Promise.all([
     readFile(new URL("db/schema.ts", root), "utf8"),
     readFile(new URL("app/api/bot/telemetry/route.ts", root), "utf8"),
     readFile(new URL("app/lib/dashboard-data.ts", root), "utf8"),
     readFile(new URL("app/dashboard-client.tsx", root), "utf8"),
+    readFile(new URL("app/globals.css", root), "utf8"),
     readdir(new URL("drizzle/", root)),
   ]);
   const migrationBodies = await Promise.all(
@@ -55,7 +56,10 @@ test("persists optional paper-only watchlist telemetry without implying a connec
   assert.match(telemetryRoute, /ON CONFLICT\(id\) DO UPDATE/);
   assert.match(dashboardData, /watchlist: watchlistRows\[0\] \?\? null/);
   assert.match(client, /Robinhood Options Watchlist/);
-  assert.match(client, /watchlist === null \? "Awaiting sync"/);
+  assert.match(client, /awaiting: "Awaiting sync"/);
+  assert.match(client, /freshness\?\.label === "Stale" \? "stale" : watchlist\.status/);
+  assert.match(client, /watchlist-panel--\$\{effectiveStatus\}/);
+  assert.match(styles, /watchlist-panel--stale \.watchlist-status/);
   assert.match(client, /Paper-only monitoring/);
   assert.match(client, /Real Robinhood execution remains disabled in V1/);
 });
