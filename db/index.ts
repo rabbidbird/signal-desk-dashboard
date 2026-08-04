@@ -2,12 +2,25 @@ import { env } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
-export function getDb() {
-  if (!env.DB) {
+type RuntimeEnv = {
+  DB?: D1Database;
+  BOT_API_TOKEN?: string;
+};
+
+export function getRuntimeEnv(): RuntimeEnv {
+  return env as unknown as RuntimeEnv;
+}
+
+export function getD1(): D1Database {
+  const database = getRuntimeEnv().DB;
+  if (!database) {
     throw new Error(
-      "Cloudflare D1 binding `DB` is unavailable. Set the `d1` field in .openai/hosting.json to `DB` or let your control plane inject the real binding values before using the database."
+      "Cloudflare D1 binding `DB` is unavailable. Set the logical D1 binding in .openai/hosting.json and apply the generated migrations.",
     );
   }
+  return database;
+}
 
-  return drizzle(env.DB, { schema });
+export function getDb() {
+  return drizzle(getD1(), { schema });
 }
