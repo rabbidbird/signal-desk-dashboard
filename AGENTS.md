@@ -38,8 +38,9 @@
 - Grok is optional, explicitly invoked, and advisory only. Prefer the locally
   installed hardened trading Grokodex `grok_run` tool for bounded planning,
   research synthesis from approved context, complex coding candidates, second
-  opinions, reviews, and rescue tasks. Reserve `grok_imagine` for a separately
-  authorized non-runtime image work order if image work is ever needed.
+  opinions, reviews, and rescue tasks. This coding/research lane must expose
+  only `grok_setup` and `grok_run`; image generation and every other Grok tool
+  are out of scope and require a separately reviewed plugin and work order.
 - Use only the existing local `grok login`/grok.com subscription session. Never
   request, store, transmit, or fall back to `XAI_API_KEY`, `GROK_API_KEY`, or
   any other xAI API key. If subscription authentication or the bounded wrapper
@@ -53,9 +54,9 @@
   fallback, or application code path.
 - The hardened `grok_run` path must start a fresh restricted session and give
   Grok no filesystem, shell, Git, GitHub, network, memory, or sub-agent tools.
-  It returns response text only. Codex alone inspects files, applies selected
-  edits, validates behavior, stages, commits, pushes, opens pull requests, and
-  prepares owner-decision packets.
+  It returns response text only and must report zero model tool calls. Codex
+  alone inspects files, applies selected edits, validates behavior, stages,
+  commits, pushes, opens pull requests, and prepares owner-decision packets.
 - The Grok advisory lane and every Codex implementation or review lane must use
   completely separate issues, branches, registered worktrees, and pull
   requests. Codex provisions and controls the Grok lane's Git/GitHub records;
@@ -68,8 +69,17 @@
   state, runtime state, database files, logs, proposals, position data, or
   pause, kill, approval, or other control-state tokens in prompts, Git, or issue
   content.
+- Before dispatch, record the exact clean worktree, branch, base commit,
+  owner-approved prompt hash, `grok_run`-only tool surface, frozen plugin and
+  CLI versions/hashes, identified repository-owner reviewer, and that owner's
+  explicit run authorization. Afterward, verify zero model tool calls and an
+  exact one-report-file diff. Any mismatch stops the run and quarantines its
+  output.
 - For work touching the bot/dashboard contract, Codex must read and enforce
   both repositories' `AGENTS.md` files, while still creating separate work
-  orders and Grok runs for each repository. All AI-generated work remains
-  unapproved until human triage and review. Grok cannot approve, merge,
-  promote, publish, or make owner decisions.
+  orders and Grok runs for each repository. Each advisory record must name the
+  exact commit SHA reviewed by the identified repository owner and contain that
+  owner's recorded disposition. AI output cannot populate, sign, or satisfy an
+  owner authorization, review, approval, or disposition field. No AI-generated
+  work may be accepted or merged without that owner record. Grok cannot
+  approve, merge, promote, publish, or make owner decisions.
