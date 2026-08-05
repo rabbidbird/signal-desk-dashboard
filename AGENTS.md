@@ -32,3 +32,44 @@
   output, Wrangler state, dependency directories, or local work artifacts.
 - Use one branch or Git worktree per task or agent. Pull before starting, push a
   task branch, and merge only after tests and diff review pass.
+
+## Bounded Grok advisory lane
+
+- Grok is optional, explicitly invoked, and advisory only. Prefer the locally
+  installed hardened trading Grokodex `grok_run` tool for bounded planning,
+  research synthesis from approved context, complex coding candidates, second
+  opinions, reviews, and rescue tasks. Reserve `grok_imagine` for a separately
+  authorized non-runtime image work order if image work is ever needed.
+- Use only the existing local `grok login`/grok.com subscription session. Never
+  request, store, transmit, or fall back to `XAI_API_KEY`, `GROK_API_KEY`, or
+  any other xAI API key. If subscription authentication or the bounded wrapper
+  is unavailable, stop and report the gap.
+- Invoke Grok only from the exact root of a dedicated, registered,
+  non-canonical worktree assigned to one Grok advisory work order. Never invoke
+  it from the trading loop, heartbeat, market-session checks, position
+  monitoring, proposal generation, approval flow, a dashboard request or
+  control handler, or any production command or process that can read or affect
+  paper state. Do not add Grok or xAI as a runtime dependency, service, hook,
+  fallback, or application code path.
+- The hardened `grok_run` path must start a fresh restricted session and give
+  Grok no filesystem, shell, Git, GitHub, network, memory, or sub-agent tools.
+  It returns response text only. Codex alone inspects files, applies selected
+  edits, validates behavior, stages, commits, pushes, opens pull requests, and
+  prepares owner-decision packets.
+- The Grok advisory lane and every Codex implementation or review lane must use
+  completely separate issues, branches, registered worktrees, and pull
+  requests. Codex provisions and controls the Grok lane's Git/GitHub records;
+  Grok never accesses them. A Grok pull request may contain only a sanitized
+  advisory/evidence record. Adopted advice starts again from the reviewed base
+  in a separate Codex work order; do not reuse or cherry-pick the Grok lane.
+- Before dispatch, use
+  `.github/ISSUE_TEMPLATE/grok-advisory-work-order.md`. Minimize the prompt to
+  approved non-secret context. Never include credentials, browser or login
+  state, runtime state, database files, logs, proposals, position data, or
+  pause, kill, approval, or other control-state tokens in prompts, Git, or issue
+  content.
+- For work touching the bot/dashboard contract, Codex must read and enforce
+  both repositories' `AGENTS.md` files, while still creating separate work
+  orders and Grok runs for each repository. All AI-generated work remains
+  unapproved until human triage and review. Grok cannot approve, merge,
+  promote, publish, or make owner decisions.
