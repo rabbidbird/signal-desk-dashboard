@@ -24,7 +24,14 @@ export async function POST(request: Request) {
 
     if (existing?.materialHash === materialHash) {
       const proposal = await maybeAutoApprove(existing, now);
-      return Response.json({ proposal, idempotent: true, autoApproved: proposal.status === "approved" });
+      return Response.json({
+        accepted: true,
+        proposalId: proposal.id,
+        materialHash: proposal.materialHash,
+        proposal,
+        idempotent: true,
+        autoApproved: proposal.status === "approved",
+      });
     }
     if (existing && existing.status !== "pending") {
       throw new RequestError("A decided or submitted proposal is immutable; create a new proposal id", 409);
@@ -68,7 +75,14 @@ export async function POST(request: Request) {
     });
     const proposal = await maybeAutoApprove(stored, now);
     return Response.json(
-      { proposal, idempotent: false, autoApproved: proposal.status === "approved" },
+      {
+        accepted: true,
+        proposalId: proposal.id,
+        materialHash: proposal.materialHash,
+        proposal,
+        idempotent: false,
+        autoApproved: proposal.status === "approved",
+      },
       { status: existing ? 200 : 201 },
     );
   } catch (error) {

@@ -45,7 +45,10 @@ export async function GET(request: Request) {
           version: 0,
           updatedAt: now,
         },
-        commands: commandRows,
+        // The bot consumes an exact immutable decision command. Keep the
+        // joined proposal solely as a D1 identity fence; never expose the
+        // Drizzle join envelope at this boundary.
+        commands: commandRows.map(({ decision }) => decision),
       },
       { headers: { "cache-control": "no-store" } },
     );

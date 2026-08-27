@@ -102,8 +102,12 @@ test("auto-approves paper proposals only when the operator policy and safety con
   assert.match(proposalRoute, /s\.paused = 0 AND s\.kill_switch_engaged = 0/);
   assert.match(proposalRoute, /p\.expires_at > \?/);
   assert.match(proposalRoute, /paper-auto-policy/);
+  assert.match(proposalRoute, /accepted: true/);
+  assert.match(proposalRoute, /proposalId: proposal\.id/);
+  assert.match(proposalRoute, /materialHash: proposal\.materialHash/);
   assert.doesNotMatch(proposalRoute, /mode = 'live'.*approved/s);
   assert.match(commandRoute, /paperAutoApprove: isPaperAutoApprovalEnabled\(\)/);
+  assert.match(commandRoute, /commandRows\.map\(\(\{ decision \}\) => decision\)/);
   assert.match(dashboardData, /paperAutoApprove/);
   assert.match(client, /Paper approvals/);
   assert.match(client, /live execution remains disabled/);
