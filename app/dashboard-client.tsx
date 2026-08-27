@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { watchlistFreshness } from "@/app/lib/watchlist-freshness";
 
 type View = "overview" | "approvals" | "positions" | "activity" | "risk";
 type Mode = "paper" | "live";
@@ -157,14 +158,6 @@ function ModeBadge({ mode }: { mode: Mode }) {
 
 function EmptyState({ title, detail }: { title: string; detail: string }) {
   return <div className="empty-state"><span aria-hidden="true">◇</span><strong>{title}</strong><p>{detail}</p></div>;
-}
-
-function watchlistFreshness(syncedAt: string, serverTime: string) {
-  const ageMs = Math.max(0, Date.parse(serverTime) - Date.parse(syncedAt));
-  const ageMinutes = Math.floor(ageMs / 60_000);
-  if (ageMs <= 2 * 60_000) return { label: "Fresh", detail: "under 2m old" };
-  if (ageMs <= 15 * 60_000) return { label: "Aging", detail: `${ageMinutes}m old` };
-  return { label: "Stale", detail: ageMinutes < 60 ? `${ageMinutes}m old` : `${Math.floor(ageMinutes / 60)}h old` };
 }
 
 function WatchlistPanel({ watchlist, serverTime }: { watchlist: Watchlist | null; serverTime: string }) {
