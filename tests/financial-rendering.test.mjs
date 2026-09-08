@@ -53,3 +53,12 @@ test("a fresh complete flat snapshot displays its real zero positions and equity
   assert.match(controls, /Not required/);
   assert.match(controls, /Not confirmed/);
 });
+
+test("a newly delivered stale-data warning cannot expose placeholder risk limits", () => {
+  const flat = { ...account, recordedAt: current, openPositionsCount: 0 };
+  const unavailable = { ...risk, recordedAt: current, staleData: true };
+  const telemetry = financialTelemetry(flat, unavailable, [], now);
+  const controls = renderToStaticMarkup(React.createElement(exports.RiskPanel, { account: flat, risk: unavailable, system, telemetry, paperAutoApprove: true, controlReason: "" }));
+  assert.doesNotMatch(controls, /10,000|5,000/);
+  assert.match(controls, /Stale/);
+});
