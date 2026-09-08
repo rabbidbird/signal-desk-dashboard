@@ -51,6 +51,25 @@ Both browser write routes verify the ChatGPT-authenticated user on the server.
 An approval is a one-time decision bound to the proposal id, current revision,
 material hash, and expiration. A pause or kill-switch state blocks approval.
 
+## Financial data freshness
+
+Refreshing the page does not make an old bot snapshot current. Account and risk
+snapshots expire after 20 minutes (the 15-minute reporting cadence plus five
+minutes to finish). Missing, invalid, or future timestamps fail closed. The
+browser continues aging retained data when a refresh fails.
+
+Current account totals require fresh account and risk snapshots, non-stale
+prices, matching report timestamps, and agreement between the account position
+count and the complete position snapshot. Filtering the visible positions does
+not change this check. A flat account reports that position prices are not
+required; an unconfirmed broker connection is never labeled offline as a fact.
+Until those checks pass, current equity, buying power, P&L, exposure, and position
+counts are hidden. Risk data cannot claim fresh prices or a current connection
+from an expired snapshot. The equity chart remains historical and displays the
+full date and freshness of its last snapshot. Pause and emergency controls remain
+available independently of financial telemetry; these display checks do not
+change the bot's deterministic trading controls or approval rules.
+
 ## Hosting requirements
 
 The Site needs the logical D1 binding `DB`, the generated migration under
