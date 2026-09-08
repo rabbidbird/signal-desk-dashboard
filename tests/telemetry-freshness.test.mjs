@@ -46,3 +46,9 @@ test("complete fresh flat and occupied snapshots display current account data", 
   assert.equal(financialTelemetry({ ...account, openPositionsCount: 1 }, risk, [{ updatedAt: stamp }], now).positionsCurrent, true);
   assert.equal(financialTelemetry(account, { ...risk, recordedAt: "2026-08-04T16:50:50Z" }, [], now).accountCurrent, false);
 });
+
+test("different fresh reporting snapshots cannot be combined into current totals", () => {
+  const earlier = new Date(now - 1_000).toISOString();
+  assert.equal(financialTelemetry(account, { ...risk, recordedAt: earlier }, [], now).accountCurrent, false);
+  assert.equal(financialTelemetry({ ...account, openPositionsCount: 1 }, risk, [{ updatedAt: earlier }], now).positionsCurrent, false);
+});

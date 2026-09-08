@@ -59,8 +59,10 @@ minutes to finish). Missing, invalid, or future timestamps fail closed. The
 browser continues aging retained data when a refresh fails.
 
 Current account totals require fresh account and risk snapshots, non-stale
-prices, and agreement between the account position count and the complete
-position snapshot. Filtering the visible positions does not change this check.
+prices, matching report timestamps, and agreement between the account position
+count and the complete position snapshot. Filtering the visible positions does
+not change this check. A flat account reports that position prices are not
+required; an unconfirmed broker connection is never labeled offline as a fact.
 Until those checks pass, current equity, buying power, P&L, exposure, and position
 counts are hidden. Risk data cannot claim fresh prices or a current connection
 from an expired snapshot. The equity chart remains historical and displays the

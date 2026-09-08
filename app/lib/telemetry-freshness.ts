@@ -28,8 +28,10 @@ export function financialTelemetry(
   const accountFreshness = telemetryFreshness(account?.recordedAt, nowMs);
   const riskFreshness = telemetryFreshness(risk?.recordedAt, nowMs);
   const positionsAgree = !!account && account.openPositionsCount === positions.length;
+  const snapshotsAgree = !!account && !!risk && Date.parse(account.recordedAt) === Date.parse(risk.recordedAt)
+    && positions.every((position) => Date.parse(position.updatedAt) === Date.parse(account.recordedAt));
   const marketDataCurrent = riskFreshness.current && risk?.staleData === false;
-  const positionsCurrent = accountFreshness.current && positionsAgree && marketDataCurrent
+  const positionsCurrent = accountFreshness.current && positionsAgree && snapshotsAgree && marketDataCurrent
     && positions.every((position) => telemetryFreshness(position.updatedAt, nowMs).current);
   const accountCurrent = accountFreshness.current && positionsCurrent;
   return {
@@ -38,7 +40,7 @@ export function financialTelemetry(
     detail: !accountFreshness.current ? `Account: ${accountFreshness.detail}.`
       : !riskFreshness.current ? `Risk: ${riskFreshness.detail}.`
       : risk?.staleData ? "Position prices or market data need a fresh update."
-      : !positionsAgree ? "Account and position snapshots disagree; awaiting a complete update."
+      : !positionsAgree || !snapshotsAgree ? "Account, risk, and position snapshots disagree; awaiting a complete update."
       : !positionsCurrent ? "Position snapshots need a fresh update."
       : accountFreshness.detail,
   };

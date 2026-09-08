@@ -49,4 +49,7 @@ test("a fresh complete flat snapshot displays its real zero positions and equity
   assert.match(summary, /Across 0 positions/);
   const positions = renderToStaticMarkup(React.createElement(exports.PositionsPanel, { positions: [], current: telemetry.positionsCurrent, detail: telemetry.detail }));
   assert.match(positions, /No open positions/);
+  const controls = renderToStaticMarkup(React.createElement(exports.RiskPanel, { account: flat, risk: { ...risk, recordedAt: current, brokerConnected: false }, system, telemetry, paperAutoApprove: true, controlReason: "" }));
+  assert.match(controls, /Not required/);
+  assert.match(controls, /Not confirmed/);
 });
