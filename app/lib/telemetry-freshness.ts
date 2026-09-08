@@ -1,11 +1,10 @@
 // Account reporting follows the 15-minute heartbeat, with five minutes to finish.
 export const TELEMETRY_MAX_AGE_MS = 20 * 60_000;
-const FUTURE_TOLERANCE_MS = 30_000;
 
 export function telemetryFreshness(recordedAt: string | undefined, nowMs: number) {
   if (!recordedAt) return { current: false, label: "Awaiting sync", detail: "No snapshot received" };
   const recorded = Date.parse(recordedAt);
-  if (!Number.isFinite(recorded) || !Number.isFinite(nowMs) || recorded > nowMs + FUTURE_TOLERANCE_MS) {
+  if (!Number.isFinite(recorded) || !Number.isFinite(nowMs) || recorded > nowMs) {
     return { current: false, label: "Stale", detail: "Invalid snapshot timestamp" };
   }
   const current = nowMs - recorded <= TELEMETRY_MAX_AGE_MS;

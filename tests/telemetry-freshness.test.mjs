@@ -26,6 +26,9 @@ test("missing, malformed and future timestamps never claim current telemetry", (
     assert.equal(telemetryFreshness(value, now).current, false);
   }
   assert.equal(telemetryFreshness(stamp, NaN).current, false);
+  for (const ahead of [1, 30_000]) {
+    assert.equal(telemetryFreshness(new Date(now + ahead).toISOString(), now).current, false);
+  }
   assert.equal(financialTelemetry(undefined, undefined, [], now).positionsCurrent, false);
 });
 
