@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { watchlistFreshness } from "@/app/lib/watchlist-freshness";
+import { financialTelemetry, telemetryFreshness } from "@/app/lib/telemetry-freshness";
 
 type View = "overview" | "approvals" | "positions" | "activity" | "risk";
 type Mode = "paper" | "live";
@@ -226,19 +227,24 @@ function ApprovalCards({
   );
 }
 
-function EquityChart({ accounts }: { accounts: Account[] }) {
+function AccountSummary({ account, mode }: { account?: Account; mode: Mode }) {
+  return <section className="metric-grid" aria-label={`${mode} account summary`}><article className="metric-card metric-card--accent"><div className="metric-label"><span>{mode} equity</span><ModeBadge mode={mode} /></div><strong>{money(account?.equityCents)}</strong><p>{account ? `${money(account.dayPnlCents, true)} today` : "Awaiting current account data"}</p></article><article className="metric-card"><div className="metric-label"><span>Buying power</span><span>↗</span></div><strong>{money(account?.buyingPowerCents)}</strong><p>{account ? account.accountLabel : "Awaiting current account data"}</p></article><article className="metric-card"><div className="metric-label"><span>Open exposure</span><span>↗</span></div><strong>{money(account?.openExposureCents)}</strong><p>{account ? `Across ${account.openPositionsCount} positions` : "Position count unavailable"}</p></article><article className="metric-card"><div className="metric-label"><span>Win rate</span><span>↗</span></div><strong>{account ? `${(account.winRateBps / 100).toFixed(1)}%` : "—"}</strong><p>From completed ledger trades</p></article></section>;
+}
+
+function EquityChart({ accounts, nowMs }: { accounts: Account[]; nowMs: number }) {
   const data = accounts.slice(-30).map((item) => item.equityCents);
   const min = data.length ? Math.min(...data) : 0;
   const max = data.length ? Math.max(...data) : 1;
   const span = Math.max(max - min, 1);
   const last = accounts.at(-1);
   const first = accounts[0];
+  const freshness = telemetryFreshness(last?.recordedAt, nowMs);
   const change = last && first ? last.equityCents - first.equityCents : null;
   return (
     <section className="panel chart-panel" aria-labelledby="equity-title">
       <div className="panel-heading"><div><p className="eyebrow">PERFORMANCE</p><h2 id="equity-title">Account equity</h2></div>{last && <ModeBadge mode={last.mode} />}</div>
       {!data.length ? <EmptyState title="No equity history yet" detail="The bot will record account snapshots here during each run." /> : <>
-        <div className="chart-value-row"><div><strong>{money(last?.equityCents)}</strong><span className={(change ?? 0) >= 0 ? "positive" : "negative"}>{money(change, true)} in this view</span></div><span className="chart-caption">{data.length} synced snapshots</span></div>
+        <div className="chart-value-row"><div><strong>{money(last?.equityCents)}</strong><span className={(change ?? 0) >= 0 ? "positive" : "negative"}>{money(change, true)} in this view</span></div><span className="chart-caption">{data.length} snapshots · {freshness.label} · {freshness.detail}</span></div>
         <div className="chart-wrap" role="img" aria-label={`Account equity history ending at ${money(last?.equityCents)}`}>
           <div className="chart-grid-lines" aria-hidden="true"><span /><span /><span /><span /></div>
           <div className="equity-bars" aria-hidden="true">{data.map((value, index) => <span key={`${index}-${value}`} style={{ height: `${24 + ((value - min) / span) * 66}%` }} />)}</div>
@@ -249,11 +255,11 @@ function EquityChart({ accounts }: { accounts: Account[] }) {
   );
 }
 
-function PositionsPanel({ positions, expanded = false }: { positions: Position[]; expanded?: boolean }) {
+function PositionsPanel({ positions, current, detail, expanded = false }: { positions: Position[]; current: boolean; detail: string; expanded?: boolean }) {
   return (
     <section className={`panel positions-panel ${expanded ? "positions-panel--expanded" : ""}`} aria-labelledby="positions-title">
-      <div className="panel-heading"><div><p className="eyebrow">IN THE MARKET</p><h2 id="positions-title">Open positions <span>{positions.length}</span></h2></div><span className="approval-note">Latest bot snapshot</span></div>
-      {!positions.length ? <EmptyState title="No open positions" detail="Open paper or live positions will appear after the bot syncs them." /> : <div className="position-list">
+      <div className="panel-heading"><div><p className="eyebrow">IN THE MARKET</p><h2 id="positions-title">Open positions <span>{current ? positions.length : "—"}</span></h2></div><span className="approval-note">{current ? "Current bot snapshot" : "Awaiting current snapshot"}</span></div>
+      {!current ? <EmptyState title="Position status unavailable" detail={detail} /> : !positions.length ? <EmptyState title="No open positions" detail="Open paper or live positions will appear after the bot syncs them." /> : <div className="position-list">
         {positions.map((position) => {
           const contract = `${shortDate(position.expiration)} · ${money(position.strikeCents)} ${position.optionType}`;
           return <article className="position-row" key={position.id}>
@@ -280,14 +286,14 @@ function ActivityPanel({ activity, limit }: { activity: Activity[]; limit?: numb
   );
 }
 
-function RiskPanel({ risk, account, system, paperAutoApprove, onControl, busy, controlReason, onControlReason }: { risk?: Risk; account?: Account; system: SystemState; paperAutoApprove: boolean; onControl: (action: string) => void; busy: string | null; controlReason: string; onControlReason: (reason: string) => void }) {
+function RiskPanel({ risk, account, telemetry, system, paperAutoApprove, onControl, busy, controlReason, onControlReason }: { risk?: Risk; account?: Account; telemetry: ReturnType<typeof financialTelemetry>; system: SystemState; paperAutoApprove: boolean; onControl: (action: string) => void; busy: string | null; controlReason: string; onControlReason: (reason: string) => void }) {
   const controls = [
     { name: "Trading state", value: system.killSwitchEngaged ? "KILL SWITCH" : system.paused ? "Paused" : "Eligible", note: system.reason, state: system.paused ? "watch" : "safe" },
     { name: "Paper approvals", value: paperAutoApprove ? "Automatic" : "Manual", note: paperAutoApprove ? "Exact paper proposals auto-approve; live execution remains disabled" : "Waiting for an operator decision", state: paperAutoApprove ? "safe" : "watch" },
-    { name: "Market data", value: risk?.staleData ? "Stale" : risk ? "Fresh" : "Unknown", note: risk ? `Updated ${new Date(risk.recordedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Awaiting first risk snapshot", state: risk && !risk.staleData ? "safe" : "watch" },
-    { name: "Broker telemetry", value: risk?.brokerConnected ? "Reported connected" : risk ? "Reported offline" : "Unknown", note: risk ? `${risk.mode === "live" ? "Robinhood" : "Paper broker"} telemetry · ${risk.staleData ? "stale" : "updated"} ${new Date(risk.recordedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Awaiting bot telemetry", state: risk?.brokerConnected && !risk.staleData ? "safe" : "watch" },
-    { name: "Open positions", value: `${account?.openPositionsCount ?? 0} / ${risk?.maxPositions ?? "—"}`, note: "Current account versus configured limit", state: account && risk && account.openPositionsCount <= risk.maxPositions ? "safe" : "watch" },
-    { name: "Exposure", value: `${money(account?.openExposureCents)} / ${money(risk?.maxExposureCents)}`, note: `Daily loss buffer ${money(risk?.dailyLossRemainingCents)}`, state: account && risk && account.openExposureCents <= risk.maxExposureCents ? "safe" : "watch" },
+    { name: "Market data", value: telemetry.marketDataCurrent ? "Fresh" : risk ? "Stale" : "Unknown", note: telemetry.riskFreshness.detail, state: telemetry.marketDataCurrent ? "safe" : "watch" },
+    { name: "Broker telemetry", value: !telemetry.riskFreshness.current ? "Unknown" : risk?.brokerConnected ? "Reported connected" : "Reported offline", note: telemetry.riskFreshness.detail, state: telemetry.riskFreshness.current && risk?.brokerConnected ? "safe" : "watch" },
+    { name: "Open positions", value: `${telemetry.accountCurrent ? account?.openPositionsCount : "—"} / ${telemetry.riskFreshness.current ? risk?.maxPositions : "—"}`, note: telemetry.accountCurrent ? "Current account versus configured limit" : telemetry.detail, state: telemetry.accountCurrent && account && risk && account.openPositionsCount <= risk.maxPositions ? "safe" : "watch" },
+    { name: "Exposure", value: `${money(telemetry.accountCurrent ? account?.openExposureCents : undefined)} / ${money(telemetry.riskFreshness.current ? risk?.maxExposureCents : undefined)}`, note: telemetry.marketDataCurrent ? `Daily loss buffer ${money(risk?.dailyLossRemainingCents)}` : telemetry.detail, state: telemetry.accountCurrent && account && risk && account.openExposureCents <= risk.maxExposureCents ? "safe" : "watch" },
   ];
   return <section className="panel risk-panel" aria-labelledby="risk-title">
     <div className="panel-heading"><div><p className="eyebrow">FAIL-CLOSED SAFETY</p><h2 id="risk-title">Risk &amp; emergency controls</h2></div><span className={system.paused ? "watch-badge" : "safe-badge"}>{system.killSwitchEngaged ? "Emergency stop" : system.paused ? "Paused" : "Eligible"}</span></div>
@@ -304,6 +310,8 @@ function RiskPanel({ risk, account, system, paperAutoApprove, onControl, busy, c
 
 export default function DashboardClient({ user }: { user: { displayName: string; email: string } }) {
   const [data, setData] = useState<DashboardData>(emptyData);
+  const [nowMs, setNowMs] = useState(Date.now);
+  const [receivedAt, setReceivedAt] = useState<number | null>(null);
   const [view, setView] = useState<View>("overview");
   const [mode, setMode] = useState<Mode>("paper");
   const [mobileNav, setMobileNav] = useState(false);
@@ -319,6 +327,8 @@ export default function DashboardClient({ user }: { user: { displayName: string;
       const body = await response.json() as DashboardData & { error?: string };
       if (!response.ok) throw new Error(body.error ?? "Dashboard sync failed");
       setData(body);
+      setReceivedAt(Date.now());
+      setNowMs(Date.now());
       setError(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Dashboard sync failed");
@@ -329,7 +339,7 @@ export default function DashboardClient({ user }: { user: { displayName: string;
 
   useEffect(() => {
     const initialTimer = window.setTimeout(() => void refresh(), 0);
-    const timer = window.setInterval(() => void refresh(), 15_000);
+    const timer = window.setInterval(() => { setNowMs(Date.now()); void refresh(); }, 15_000);
     return () => {
       window.clearTimeout(initialTimer);
       window.clearInterval(timer);
@@ -373,6 +383,11 @@ export default function DashboardClient({ user }: { user: { displayName: string;
 
   const account = data.accounts.find((item) => item.mode === mode);
   const risk = data.risk.find((item) => item.mode === mode);
+  const serverMs = Date.parse(data.serverTime);
+  const observedNow = receivedAt === null || !Number.isFinite(serverMs) ? nowMs : serverMs + Math.max(0, nowMs - receivedAt);
+  const modePositions = data.positions.filter((item) => item.mode === mode);
+  const telemetry = financialTelemetry(account, risk, modePositions, observedNow);
+  const currentAccount = telemetry.accountCurrent ? account : undefined;
   const positions = data.positions.filter((item) => item.mode === mode && (!filter || item.symbol.includes(filter.toUpperCase())));
   const activity = data.activity.filter((item) => item.mode === mode && (!filter || item.symbol?.includes(filter.toUpperCase()) || item.message.toLowerCase().includes(filter.toLowerCase())));
   const history = data.equityHistory.filter((item) => item.mode === mode);
@@ -405,15 +420,16 @@ export default function DashboardClient({ user }: { user: { displayName: string;
     <main className="main-content">
       <header className="topbar"><button className="mobile-menu" type="button" aria-label="Open navigation" onClick={() => setMobileNav(true)}>☰</button><label className="search-box"><span aria-hidden="true">⌕</span><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Find a symbol or event" aria-label="Find a symbol or event" /></label><div className="header-actions"><div className="mode-switch" aria-label="Account mode">{(["paper", "live"] as const).map((item) => <button key={item} type="button" className={mode === item ? "active" : ""} onClick={() => setMode(item)}>{item}</button>)}</div><button type="button" className="export-button" onClick={downloadCsv}>Export activity</button><span className="avatar">{initials}</span></div></header>
       <div className="content-wrap">
-        <section className="page-intro"><div><p className="date-line">{new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(new Date()).toUpperCase()}</p><h1>{pageMeta[0]}</h1><p>{pageMeta[1]}</p></div><div className="market-status"><span>{loading ? "Syncing" : error ? "Needs attention" : "Dashboard synced"}</span><small>{error ?? `Last refresh ${new Date(data.serverTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}</small></div></section>
+        <section className="page-intro"><div><p className="date-line">{new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric" }).format(new Date()).toUpperCase()}</p><h1>{pageMeta[0]}</h1><p>{pageMeta[1]}</p></div><div className="market-status"><span>{loading ? "Syncing" : error || telemetry.needsAttention ? "Needs attention" : "Dashboard synced"}</span><small>{error ?? `Last refresh ${new Date(data.serverTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`}</small></div></section>
         {error && <div className="error-banner" role="alert"><strong>Dashboard needs attention.</strong> {error}<button type="button" onClick={() => void refresh()}>Retry</button></div>}
         <div className={`safety-banner ${data.system.killSwitchEngaged ? "safety-banner--kill" : data.system.paused ? "safety-banner--paused" : "safety-banner--active"}`}><div><strong>{data.system.killSwitchEngaged ? "Emergency kill switch engaged" : data.system.paused ? "New trades are paused" : "Trading is eligible within configured limits"}</strong><span>{data.system.reason} · Paper approvals {data.paperAutoApprove ? "automatic" : "manual"}</span></div>{!data.system.paused && <button type="button" onClick={() => void updateControl("pause")}>Pause now</button>}</div>
 
-        {view === "overview" && <><section className="metric-grid" aria-label={`${mode} account summary`}><article className="metric-card metric-card--accent"><div className="metric-label"><span>{mode} equity</span><ModeBadge mode={mode} /></div><strong>{money(account?.equityCents)}</strong><p>{money(account?.dayPnlCents, true)} today</p></article><article className="metric-card"><div className="metric-label"><span>Buying power</span><span>↗</span></div><strong>{money(account?.buyingPowerCents)}</strong><p>{account ? account.accountLabel : "Awaiting bot sync"}</p></article><article className="metric-card"><div className="metric-label"><span>Open exposure</span><span>↗</span></div><strong>{money(account?.openExposureCents)}</strong><p>Across {account?.openPositionsCount ?? 0} positions</p></article><article className="metric-card"><div className="metric-label"><span>Win rate</span><span>↗</span></div><strong>{account ? `${(account.winRateBps / 100).toFixed(1)}%` : "—"}</strong><p>From completed ledger trades</p></article></section><WatchlistPanel watchlist={data.watchlist} serverTime={data.serverTime} /><ApprovalCards proposals={proposals} paused={data.system.paused} busy={busy} onDecision={decide} compact /><div className="overview-grid"><EquityChart accounts={history} /><PositionsPanel positions={positions} /></div><div className="lower-grid"><ActivityPanel activity={activity} limit={5} /><RiskPanel risk={risk} account={account} system={data.system} paperAutoApprove={data.paperAutoApprove} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div></>}
+        {!loading && telemetry.needsAttention && <div className="telemetry-banner" role="status"><strong>Financial data needs an update.</strong><span>{telemetry.detail} Current totals are hidden until a complete, fresh snapshot arrives.</span></div>}
+        {view === "overview" && <><AccountSummary account={currentAccount} mode={mode} /><WatchlistPanel watchlist={data.watchlist} serverTime={new Date(observedNow).toISOString()} /><ApprovalCards proposals={proposals} paused={data.system.paused} busy={busy} onDecision={decide} compact /><div className="overview-grid"><EquityChart accounts={history} nowMs={observedNow} /><PositionsPanel positions={positions} current={telemetry.positionsCurrent} detail={telemetry.detail} /></div><div className="lower-grid"><ActivityPanel activity={activity} limit={5} /><RiskPanel risk={risk} account={account} telemetry={telemetry} system={data.system} paperAutoApprove={data.paperAutoApprove} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div></>}
         {view === "approvals" && <div className="single-view single-view--wide"><ApprovalCards proposals={proposals} paused={data.system.paused} busy={busy} onDecision={decide} /></div>}
-        {view === "positions" && <div className="single-view"><PositionsPanel positions={positions} expanded /><RiskPanel risk={risk} account={account} system={data.system} paperAutoApprove={data.paperAutoApprove} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div>}
+        {view === "positions" && <div className="single-view"><PositionsPanel positions={positions} current={telemetry.positionsCurrent} detail={telemetry.detail} expanded /><RiskPanel risk={risk} account={account} telemetry={telemetry} system={data.system} paperAutoApprove={data.paperAutoApprove} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div>}
         {view === "activity" && <div className="single-view single-view--wide"><ActivityPanel activity={activity} /></div>}
-        {view === "risk" && <div className="single-view single-view--wide"><RiskPanel risk={risk} account={account} system={data.system} paperAutoApprove={data.paperAutoApprove} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div>}
+        {view === "risk" && <div className="single-view single-view--wide"><RiskPanel risk={risk} account={account} telemetry={telemetry} system={data.system} paperAutoApprove={data.paperAutoApprove} busy={busy} onControl={updateControl} controlReason={controlReason} onControlReason={setControlReason} /></div>}
         <footer><span>Signal Desk · D1-backed trading operations</span><span>{mode === "live" ? "Live account view — Robinhood execution is disabled in V1." : "Paper account selected — no real order execution."}</span></footer>
       </div>
     </main>

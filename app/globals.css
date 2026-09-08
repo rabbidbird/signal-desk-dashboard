@@ -143,3 +143,6 @@ footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px
 }
 
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition-duration: .001ms !important; } }
+
+.telemetry-banner { display: flex; flex-direction: column; gap: .35rem; margin-bottom: 1rem; padding: 1rem; border: 1px solid #d5ad60; border-radius: .6rem; background: #fff4da; color: #684915; font-size: .875rem; line-height: 1.5; }
+.chart-caption { max-width: 60%; text-align: right; line-height: 1.5; }
