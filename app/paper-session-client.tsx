@@ -49,7 +49,9 @@ export default function PaperSessionClient({ user }: { user: { displayName: stri
   const [selected, setSelected] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [clock, setClock] = useState(0);
   const refresh = useCallback(async () => {
+    setClock(Date.now());
     try {
       const response = await fetch(`/api/paper-session${selected ? `?session=${encodeURIComponent(selected)}` : ""}`, { cache: "no-store" });
       const result = await response.json() as SessionData & { error?: string };
@@ -74,7 +76,7 @@ export default function PaperSessionClient({ user }: { user: { displayName: stri
   const paused = data?.system?.paused !== 0;
   const killed = data?.system?.kill_switch_engaged === 1;
   const armed = data?.pointer?.execution_armed === 1;
-  const stale = !!s && Date.parse(data?.server_time ?? "") - Date.parse(s.captured_at) > 120_000;
+  const stale = !!s && Math.max(clock, Date.parse(data?.server_time ?? "")) - Date.parse(s.captured_at) > 120_000;
   return <main className="session-workspace">
     <header className="session-header"><div><p className="session-brand">Signal Desk · Paper trading</p><h1>{s ? `${money(s.account.initial_cash_cents)} experiment` : "Paper session"}</h1></div><div className="session-user">{user.displayName}<small>ChatGPT verified</small></div></header>
     <div className="session-toolbar"><label>Session<select value={selected} onChange={(event) => { setSelected(event.target.value); setData(null); }}><option value="">Current session</option>{data?.sessions.map((item) => <option key={item.id} value={item.id}>{time(item.created_at)} · {money(item.initial_cash_cents)}</option>)}</select></label><a href="/history/legacy">Prior bot history</a><button type="button" onClick={() => void refresh()}>Refresh</button></div>

@@ -11,3 +11,13 @@ Snapshots use protocol version 2 and integer cents, with explicit session, run, 
 The workspace shows recorded values with their capture time even when updates stop; it does not label old values as today's performance. An unarmed session has no Resume action, and the server rejects attempts to resume it. Legacy history controls are disabled. Pausing execution and research are separate persisted fields; activation of either remains outside this migration.
 
 Validation covers atomic rollback, initial balances, prior history preservation, exact duplicate replay, conflicting/out-of-order/equal-time/cross-session uploads, unarmed resume rejection, and rendering of the actual session panels. Full unattended market sessions remain a separate observation gate after the user explicitly requests activation.
+
+The September 11 dependency review upgraded Next and its ESLint configuration
+to 16.3.4, the matched React/React DOM/RSC packages to 19.2.8, and Vite to
+8.0.16, with compatible transitive repairs recorded in the lockfile. The
+production-only npm audit is clean. The full build dependency audit still
+reports advisories in the pinned Vinext/image parser and Cloudflare/Drizzle
+toolchains. Resolving those requires a separately validated tooling migration;
+do not run npm audit fix with force or treat the production-only audit as proof
+that every bundled Worker dependency is unaffected. The experiment remains
+unarmed while this and the bot's unattended-operation gates are reviewed.
