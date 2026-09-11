@@ -42,6 +42,7 @@ export async function POST(
            FROM proposals
            WHERE id = ? AND revision = ? AND material_hash = ?
              AND status = 'pending' AND expires_at > ?
+             AND NOT EXISTS (SELECT 1 FROM paper_session_pointer WHERE id=1)
              AND (
                ? = 'denied' OR EXISTS (
                  SELECT 1 FROM system_state

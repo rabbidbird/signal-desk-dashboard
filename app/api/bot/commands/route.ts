@@ -1,5 +1,5 @@
 import { and, desc, eq, gt } from "drizzle-orm";
-import { getDb } from "@/db";
+import { getD1, getDb } from "@/db";
 import { decisions, proposals, systemState } from "@/db/schema";
 import { isPaperAutoApprovalEnabled, RequestError, requireBot, routeError } from "@/app/lib/server";
 
@@ -33,11 +33,12 @@ export async function GET(request: Request) {
         .limit(100),
     ]);
     const now = new Date().toISOString();
+    const session = await getD1().prepare("SELECT session_id FROM paper_session_pointer WHERE id=1").first();
     return Response.json(
       {
         serverTime: now,
         paperAutoApprove: isPaperAutoApprovalEnabled(),
-        system: stateRows[0] ?? {
+        system: session ? { ...stateRows[0], paused: true, reason: "Legacy runtime retired by paper session installation" } : stateRows[0] ?? {
           id: 1,
           paused: true,
           killSwitchEngaged: false,
@@ -48,7 +49,7 @@ export async function GET(request: Request) {
         // The bot consumes an exact immutable decision command. Keep the
         // joined proposal solely as a D1 identity fence; never expose the
         // Drizzle join envelope at this boundary.
-        commands: commandRows.map(({ decision }) => decision),
+        commands: session ? [] : commandRows.map(({ decision }) => decision),
       },
       { headers: { "cache-control": "no-store" } },
     );

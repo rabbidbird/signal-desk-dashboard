@@ -308,7 +308,7 @@ function RiskPanel({ risk, account, telemetry, system, paperAutoApprove, onContr
   </section>;
 }
 
-export default function DashboardClient({ user }: { user: { displayName: string; email: string } }) {
+export default function DashboardClient({ user, readOnly = false }: { user: { displayName: string; email: string }; readOnly?: boolean }) {
   const [data, setData] = useState<DashboardData>(emptyData);
   const [nowMs, setNowMs] = useState(Date.now);
   const [receivedAt, setReceivedAt] = useState<number | null>(null);
@@ -347,6 +347,7 @@ export default function DashboardClient({ user }: { user: { displayName: string;
   }, [refresh]);
 
   const decide = async (proposal: Proposal, decision: "approved" | "denied") => {
+    if (readOnly) return;
     setBusy(proposal.id);
     try {
       const response = await fetch(`/api/proposals/${encodeURIComponent(proposal.id)}/decision`, {
@@ -365,6 +366,7 @@ export default function DashboardClient({ user }: { user: { displayName: string;
   };
 
   const updateControl = async (action: string) => {
+    if (readOnly) return;
     const reason = action === "engage_kill" || action === "clear_kill" ? controlReason.trim() : null;
     if ((action === "engage_kill" || action === "clear_kill") && !reason) return;
     setBusy(action);
@@ -409,7 +411,7 @@ export default function DashboardClient({ user }: { user: { displayName: string;
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = `signal-desk-${mode}-activity.csv`; anchor.click(); URL.revokeObjectURL(url);
   };
 
-  return <div className="app-shell">
+  return <div className={`app-shell ${readOnly ? "legacy-read-only" : ""}`}>
     <aside className={`sidebar ${mobileNav ? "sidebar--open" : ""}`}>
       <div className="brand"><span className="brand-mark"><i /><i /><i /></span><strong>Signal Desk</strong></div>
       <button className="mobile-close" type="button" onClick={() => setMobileNav(false)} aria-label="Close navigation">×</button>

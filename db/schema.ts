@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { foreignKey, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const proposals = sqliteTable(
   "proposals",
@@ -164,3 +164,31 @@ export const systemState = sqliteTable("system_state", {
   updatedBy: text("updated_by").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+// V2 keeps complete immutable projections separate from legacy financial rows.
+export const paperSessions = sqliteTable("paper_sessions", {
+  id: text("id").primaryKey(),
+  initialCashCents: integer("initial_cash_cents").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const paperSessionSnapshots = sqliteTable("paper_session_snapshots", {
+  sessionId: text("session_id").notNull().references(() => paperSessions.id),
+  sequence: integer("sequence").notNull(),
+  runId: text("run_id").notNull(),
+  materialHash: text("material_hash").notNull(),
+  capturedAt: text("captured_at").notNull(),
+  envelopeJson: text("envelope_json").notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.sessionId, table.sequence] }),
+  uniqueIndex("idx_paper_snapshot_session_run").on(table.sessionId, table.runId),
+]);
+
+export const paperSessionPointer = sqliteTable("paper_session_pointer", {
+  id: integer("id").primaryKey(),
+  sessionId: text("session_id").notNull(),
+  snapshotSequence: integer("snapshot_sequence").notNull(),
+  executionArmed: integer("execution_armed", { mode: "boolean" }).notNull().default(false),
+  researchPaused: integer("research_paused", { mode: "boolean" }).notNull().default(true),
+  updatedAt: text("updated_at").notNull(),
+}, (table) => [foreignKey({ columns: [table.sessionId, table.snapshotSequence], foreignColumns: [paperSessionSnapshots.sessionId, paperSessionSnapshots.sequence] })]);

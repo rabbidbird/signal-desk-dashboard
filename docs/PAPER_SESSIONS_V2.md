@@ -1,0 +1,13 @@
+# Paper sessions V2
+
+The session workspace displays one complete simulated account independently of legacy account, position, proposal and watchlist rows. Prior bot history is preserved at `/history/legacy`; session snapshots remain separately selectable. New sessions are created paused, with research paused and execution unarmed. No route in this release arms execution.
+
+The authenticated bot endpoint `/api/bot/paper-session` accepts `register` and `snapshot` actions. Registration supplies a complete first snapshot plus `expected_control_version` and `expected_session_id` (null only for the first install). Registration is an atomic D1 batch fenced by the current paused control version and session pointer. A failed fence rolls back all rows. Success increments the control version, resets the session pointer and keeps the kill switch unchanged. Old runtime commands are forced paused and return no approvals after installation. Legacy proposal and approval routes are fenced off.
+
+Snapshots use protocol version 2 and integer cents, with explicit session, run, sequence and UTC capture time. Account totals and position totals must reconcile. All financial sections, coverage and health are required. New deliveries must be within two minutes, with at most five seconds of future skew. The current pointer advances only for a higher sequence and strictly newer capture time in the current session. Exact retries are idempotent, including after a later snapshot; conflicting material is rejected. A retry belonging to a superseded session returns 409 and never reactivates that session. Initial registration retries are likewise accepted only while that session is current.
+
+`GET /api/paper-session` requires browser authentication and returns the current complete snapshot and authenticated controls from one database statement. A `session` query selects historical projections. Bot GET uses both existing bot bearer authentication and private Sites access. Client-visible health does not confer execution authority.
+
+The workspace shows recorded values with their capture time even when updates stop; it does not label old values as today's performance. An unarmed session has no Resume action, and the server rejects attempts to resume it. Legacy history controls are disabled. Pausing execution and research are separate persisted fields; activation of either remains outside this migration.
+
+Validation covers atomic rollback, initial balances, prior history preservation, exact duplicate replay, conflicting/out-of-order/equal-time/cross-session uploads, unarmed resume rejection, and rendering of the actual session panels. Full unattended market sessions remain a separate observation gate after the user explicitly requests activation.

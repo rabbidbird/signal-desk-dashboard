@@ -20,16 +20,34 @@ export class RequestError extends Error {
   }
 }
 
-export async function readJsonObject(request: Request): Promise<Record<string, unknown>> {
+export async function readJsonObject(request: Request, maxBytes = MAX_JSON_BYTES): Promise<Record<string, unknown>> {
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().startsWith("application/json")) {
     throw new RequestError("Content-Type must be application/json", 415);
   }
   const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (contentLength > MAX_JSON_BYTES) {
+  if (contentLength > maxBytes) {
     throw new RequestError("Request body is too large", 413);
   }
-  const value: unknown = await request.json();
+  const reader = request.body?.getReader();
+  if (!reader) throw new RequestError("Request body is required");
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      length += chunk.value.byteLength;
+      if (length > maxBytes) { await reader.cancel(); throw new RequestError("Request body is too large", 413); }
+      chunks.push(chunk.value);
+    }
+  } finally { reader.releaseLock(); }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  let value: unknown;
+  try { value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); }
+  catch { throw new RequestError("Request body must be valid JSON"); }
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new RequestError("JSON body must be an object");
   }

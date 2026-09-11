@@ -1,9 +1,9 @@
 import { requireChatGPTUser } from "@/app/chatgpt-auth";
-import DashboardClient from "@/app/dashboard-client";
+import PaperSessionClient from "@/app/paper-session-client";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const user = await requireChatGPTUser("/");
-  return <DashboardClient user={{ displayName: user.displayName, email: user.email }} />;
+  return <PaperSessionClient user={{ displayName: user.displayName, email: user.email }} />;
 }
