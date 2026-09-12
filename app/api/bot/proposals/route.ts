@@ -16,6 +16,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   try {
     await requireBot(request);
+    if (await getD1().prepare("SELECT session_id FROM paper_session_pointer WHERE id=1").first()) {
+      throw new RequestError("Legacy proposals are retired; use the active paper-session protocol", 409);
+    }
     const input = normalizeProposalInput(await readJsonObject(request));
     const materialHash = await proposalMaterialHash(input);
     const db = getDb();
@@ -112,7 +115,8 @@ async function maybeAutoApprove(
          FROM proposals AS p
          INNER JOIN system_state AS s ON s.id = 1
          WHERE p.id = ? AND p.mode = 'paper' AND p.status = 'pending'
-           AND p.expires_at > ? AND s.paused = 0 AND s.kill_switch_engaged = 0`,
+           AND p.expires_at > ? AND s.paused = 0 AND s.kill_switch_engaged = 0
+           AND NOT EXISTS (SELECT 1 FROM paper_session_pointer WHERE id=1)`,
       )
       .bind(decisionId, reason, now, proposal.id, now),
     d1

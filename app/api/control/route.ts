@@ -51,16 +51,19 @@ export async function PATCH(request: Request) {
         .prepare(
           `UPDATE system_state
            SET paused = 0, reason = ?, version = version + 1, updated_by = ?, updated_at = ?
-           WHERE id = 1 AND kill_switch_engaged = 0`,
+           WHERE id = 1 AND kill_switch_engaged = 0
+             AND NOT EXISTS (SELECT 1 FROM paper_session_pointer WHERE id=1 AND execution_armed=0)`,
         )
         .bind(reason, user.userId, now);
     }
 
-    const stateResult = await statement.run();
+    const stateResult = action === "pause" || action === "engage_kill"
+      ? (await d1.batch([statement, d1.prepare("UPDATE paper_session_pointer SET research_paused=1, updated_at=? WHERE id=1").bind(now)]))[0]
+      : await statement.run();
     if ((stateResult.meta.changes ?? 0) !== 1) {
       throw new RequestError(
         action === "resume"
-          ? "Clear the kill switch before resuming"
+          ? "Resuming requires a cleared kill switch and an activated paper session"
           : "The requested control state was already clear",
         409,
       );
