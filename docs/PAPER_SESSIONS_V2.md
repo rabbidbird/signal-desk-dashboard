@@ -21,3 +21,24 @@ toolchains. Resolving those requires a separately validated tooling migration;
 do not run npm audit fix with force or treat the production-only audit as proof
 that every bundled Worker dependency is unaffected. The experiment remains
 unarmed while this and the bot's unattended-operation gates are reviewed.
+# September 12 unattended runner controls
+
+The authenticated current-session page now offers **Start paper trading** after
+a fresh paused worker snapshot. A single atomic D1 transaction checks the exact
+session and control version, cleared kill switch, no reserved cash, and fresh
+position marks before arming and unpausing research/execution. A stale or raced
+request returns 409. The bot bearer route cannot perform activation.
+
+Starting the session does not start or schedule the desktop worker. The owner
+must separately enable the reviewed scheduler. Pause and Stop also pause the
+research flag, so the dashboard describes the runner's actual behavior. Snapshot
+delivery retains the 120-second admission bound; the display allows the planned
+five-minute cadence plus one minute of completion grace. Activation retains its
+stricter 120-second freshness requirement.
+
+The updated dependency set uses Vinext 1.0.0-beta.9, plugin-rsc 0.5.34,
+Cloudflare Vite plugin 1.54.8 and Wrangler 4.131.1. Production dependencies have
+no audit findings; four moderate development-only findings remain in the
+Drizzle Kit/esbuild chain. Do not run an exposed development server or apply an
+unreviewed forced downgrade. The current build, route and storage tests verify
+the updated toolchain; the site remains owner-private.

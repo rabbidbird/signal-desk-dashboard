@@ -3,7 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { validateSnapshot, validateInitialSnapshot, snapshotHash } from "../app/lib/paper-snapshot.ts";
-import { registerSession, publishSnapshot, readSession } from "../app/lib/paper-session-store.ts";
+import { registerSession, publishSnapshot, readSession, startPaperSession } from "../app/lib/paper-session-store.ts";
 
 const now = Date.parse("2026-09-11T14:30:00Z");
 export function initial(session = "draft-paper-fixture", sequence = 1) {
@@ -49,6 +49,27 @@ test("registration creates a paused, unarmed session and preserves all old econo
     assert.equal(data.system.paused, 1); assert.equal(data.system.version, 17);
     assert.equal(data.pointer.execution_armed, 0); assert.equal(data.pointer.research_paused, 1);
     assert.equal(db.sqlite.prepare("SELECT equity_cents FROM account_snapshots").get().equity_cents, 10000000);
+  } finally { db.sqlite.close(); }
+});
+
+test("browser activation requires the exact fresh paused version and refuses kill, stale and replay", async () => {
+  const db = await database();
+  try {
+    const s = initial(); await registerSession(db, s, await snapshotHash(s), 16, null);
+    const checkAt = new Date(now + 2000);
+    assert.equal(await startPaperSession(db, "wrong", 17, "operator", checkAt), false);
+    assert.equal(await startPaperSession(db, s.session_id, 16, "operator", checkAt), false);
+    assert.equal(await startPaperSession(db, s.session_id, 17, "operator", new Date(now + 130000)), false);
+    db.sqlite.exec("UPDATE system_state SET kill_switch_engaged=1");
+    assert.equal(await startPaperSession(db, s.session_id, 17, "operator", checkAt), false);
+    db.sqlite.exec("UPDATE system_state SET kill_switch_engaged=0");
+    assert.equal(await startPaperSession(db, s.session_id, 17, "operator", checkAt), true);
+    const value = await readSession(db);
+    assert.equal(value.pointer.execution_armed, 1); assert.equal(value.pointer.research_paused, 0);
+    assert.equal(value.system.paused, 0); assert.equal(value.system.version, 18);
+    assert.equal(await startPaperSession(db, s.session_id, 17, "operator", checkAt), false);
+    assert.equal(db.sqlite.prepare("SELECT COUNT(*) n FROM activity_events WHERE status='start_paper'").get().n, 1);
+    assert.equal(value.snapshot.account.cash_cents, 100000);
   } finally { db.sqlite.close(); }
 });
 test("a raced pause/version/session reset rolls back every inserted row", async () => {

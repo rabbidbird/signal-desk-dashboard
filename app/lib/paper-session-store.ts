@@ -1,5 +1,30 @@
 import type { PaperSnapshot } from "./paper-snapshot";
 
+/** Browser-authorized activation, fenced to a fresh paused session and control version. */
+export async function startPaperSession(db: D1Database, sessionId: string, version: number, userId: string, now = new Date()) {
+  const eventId = crypto.randomUUID();
+  const stamp = now.toISOString();
+  const oldest = new Date(now.getTime() - 120_000).toISOString();
+  const results = await db.batch([
+    db.prepare(`INSERT INTO activity_events
+      (id,mode,proposal_id,event_type,symbol,message,amount_cents,status,occurred_at)
+      SELECT ?, 'paper', NULL, 'system_control', NULL, 'Operator enabled automatic paper trading', NULL, 'start_paper', ?
+      WHERE EXISTS (SELECT 1 FROM system_state c JOIN paper_session_pointer p ON p.id=c.id
+        JOIN paper_session_snapshots s ON s.session_id=p.session_id AND s.sequence=p.snapshot_sequence
+        WHERE c.id=1 AND c.version=? AND c.paused=1 AND c.kill_switch_engaged=0 AND p.session_id=?
+        AND s.captured_at>=? AND s.captured_at<=? AND json_extract(s.envelope_json,'$.health.status')='PAUSED'
+        AND json_extract(s.envelope_json,'$.account.reserved_cash_cents')=0
+        AND NOT EXISTS (SELECT 1 FROM json_each(s.envelope_json,'$.positions') pos
+          WHERE json_extract(pos.value,'$.updated_at')<?))`).bind(eventId, stamp, version, sessionId, oldest, stamp, oldest),
+    db.prepare(`UPDATE system_state SET paused=0,version=version+1,
+      reason='Operator enabled automatic paper trading',updated_by=?,updated_at=?
+      WHERE id=1 AND EXISTS (SELECT 1 FROM activity_events WHERE id=?)`).bind(userId, stamp, eventId),
+    db.prepare(`UPDATE paper_session_pointer SET execution_armed=1,research_paused=0,updated_at=?
+      WHERE id=1 AND session_id=? AND EXISTS (SELECT 1 FROM activity_events WHERE id=?)`).bind(stamp, sessionId, eventId),
+  ]);
+  return results[0].meta.changes === 1;
+}
+
 /** One SQL statement per prepare; D1 batch rolls back the whole operation on error. */
 export async function registerSession(
   db: D1Database, snapshot: PaperSnapshot, hash: string, expectedControlVersion: number, expectedSessionId: string | null,

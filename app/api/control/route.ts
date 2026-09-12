@@ -57,7 +57,9 @@ export async function PATCH(request: Request) {
         .bind(reason, user.userId, now);
     }
 
-    const stateResult = await statement.run();
+    const stateResult = action === "pause" || action === "engage_kill"
+      ? (await d1.batch([statement, d1.prepare("UPDATE paper_session_pointer SET research_paused=1, updated_at=? WHERE id=1").bind(now)]))[0]
+      : await statement.run();
     if ((stateResult.meta.changes ?? 0) !== 1) {
       throw new RequestError(
         action === "resume"
